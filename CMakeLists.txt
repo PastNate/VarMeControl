@@ -33,7 +33,11 @@ include_directories(include)
 include_directories(lib/ViGEmClient/include)
 
 # 2. Executable
-add_executable(VarMeControl main.cpp ${IMGUI_SOURCES})
+add_executable(VarMeControl WIN32 main.cpp app_icon.rc ${IMGUI_SOURCES})
+
+if(MSVC)
+    target_link_options(VarMeControl PRIVATE "/ENTRY:mainCRTStartup")
+endif()
 
 # Include ImGui folder
 target_include_directories(VarMeControl PRIVATE lib/imgui)
@@ -47,6 +51,7 @@ target_link_libraries(VarMeControl PRIVATE
         "${CMAKE_SOURCE_DIR}/lib/hidapi.lib"
         "${CMAKE_SOURCE_DIR}/lib/ViGEmClient.lib"
         setupapi.lib
+        gdiplus.lib
 )
 
 # Tell the linker to ignore the Dynamic (DLL) versions of the runtime
