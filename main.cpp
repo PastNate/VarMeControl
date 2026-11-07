@@ -634,265 +634,271 @@ int main(int, char**) {
     vigem_target_add(client, pad);
 
     bool done = false;
-    while (!done) {
-        bool saveRequested = false;
+    try{
+        while (!done) {
+            bool saveRequested = false;
 
-        MSG msg;
-        while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
-            ::TranslateMessage(&msg);
-            ::DispatchMessage(&msg);
-            if (msg.message == WM_QUIT) done = true;
-        }
-        if (done) break;
+            MSG msg;
+            while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
+                ::TranslateMessage(&msg);
+                ::DispatchMessage(&msg);
+                if (msg.message == WM_QUIT) done = true;
+            }
+            if (done) break;
 
-        // Update window Z-order based on the checkbox
-        HWND currentHwnd = GetActiveWindow(); // Or pass your 'hwnd' variable
-        if (g_AlwaysOnTop) {
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-        } else {
-            SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-        }
+            // Update window Z-order based on the checkbox
+            HWND currentHwnd = GetActiveWindow(); // Or pass your 'hwnd' variable
+            if (g_AlwaysOnTop) {
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            } else {
+                SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            }
 
-        // --- 1. HID READ LOGIC ---
-        unsigned char report[64];
-        int res = hid_read(dev_handle, report, sizeof(report));
+            // --- 1. HID READ LOGIC ---
+            unsigned char report[64];
+            int res = hid_read(dev_handle, report, sizeof(report));
 
-        XUSB_REPORT xinput_report;
-        XUSB_REPORT_INIT(&xinput_report);
+            XUSB_REPORT xinput_report;
+            XUSB_REPORT_INIT(&xinput_report);
 
-        // 1. Analog Sticks (LS)
-        float axisY = 0.0f;
-        float axisX = 0.0f;
-        axisY += myBindings[0].currentPercent; // Up
-        axisY -= myBindings[1].currentPercent; // Down
-        axisX -= myBindings[2].currentPercent; // Left
-        axisX += myBindings[3].currentPercent; // Right
-        xinput_report.sThumbLX = static_cast<SHORT>(axisX * 32767);
-        xinput_report.sThumbLY = static_cast<SHORT>(axisY * 32767);
+            // 1. Analog Sticks (LS)
+            float axisY = 0.0f;
+            float axisX = 0.0f;
+            axisY += myBindings[0].currentPercent; // Up
+            axisY -= myBindings[1].currentPercent; // Down
+            axisX -= myBindings[2].currentPercent; // Left
+            axisX += myBindings[3].currentPercent; // Right
+            xinput_report.sThumbLX = static_cast<SHORT>(axisX * 32767);
+            xinput_report.sThumbLY = static_cast<SHORT>(axisY * 32767);
 
-        // 2. Face Buttons (Bitmask)
-        if (myBindings[4].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_A;
-        if (myBindings[5].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_B;
-        if (myBindings[6].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_X;
-        if (myBindings[7].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_Y;
+            // 2. Face Buttons (Bitmask)
+            if (myBindings[4].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_A;
+            if (myBindings[5].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_B;
+            if (myBindings[6].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_X;
+            if (myBindings[7].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_Y;
 
-        // 3. Shoulders
-        if (myBindings[8].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
-        if (myBindings[9].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
+            // 3. Shoulders
+            if (myBindings[8].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
+            if (myBindings[9].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
 
-        // 4. Triggers (Analog 0-255)
-        xinput_report.bLeftTrigger  = static_cast<BYTE>(myBindings[10].currentPercent * 255);
-        xinput_report.bRightTrigger = static_cast<BYTE>(myBindings[11].currentPercent * 255);
+            // 4. Triggers (Analog 0-255)
+            xinput_report.bLeftTrigger  = static_cast<BYTE>(myBindings[10].currentPercent * 255);
+            xinput_report.bRightTrigger = static_cast<BYTE>(myBindings[11].currentPercent * 255);
 
-        // 5. Menu Buttons
-        if (myBindings[12].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_START;
-        if (myBindings[13].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_BACK;
+            // 5. Menu Buttons
+            if (myBindings[12].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_START;
+            if (myBindings[13].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_BACK;
 
-        // 6. D-Pad
-        if (myBindings[14].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_DPAD_UP;
-        if (myBindings[15].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_DPAD_DOWN;
-        if (myBindings[16].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_DPAD_LEFT;
-        if (myBindings[17].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_DPAD_RIGHT;
+            // 6. D-Pad
+            if (myBindings[14].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_DPAD_UP;
+            if (myBindings[15].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_DPAD_DOWN;
+            if (myBindings[16].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_DPAD_LEFT;
+            if (myBindings[17].currentPercent > 0.1f) xinput_report.wButtons |= XUSB_GAMEPAD_DPAD_RIGHT;
 
-        // Send to virtual controller
-        if (client && pad) {
-            vigem_target_x360_update(client, pad, xinput_report);
-        }
+            // Send to virtual controller
+            if (client && pad) {
+                vigem_target_x360_update(client, pad, xinput_report);
+            }
 
-        if (res > 0) {
-            unsigned char incomingKeyID = report[3];
-            int rawVal = (static_cast<int>(report[4]) << 8) | static_cast<int>(report[5]);
+            if (res > 0) {
+                unsigned char incomingKeyID = report[3];
+                int rawVal = (static_cast<int>(report[4]) << 8) | static_cast<int>(report[5]);
 
-            for (auto& bind : myBindings) {
-                // --- REBINDING ---
-                if (bind.isWaiting && incomingKeyID != 0) {
-                    bind.keyID = incomingKeyID;
-                    bind.minRaw = rawVal; // Set baseline to current pressure
-                    bind.maxRaw = rawVal; // Temporary ceiling
-                    bind.isWaiting = false;
-                    saveRequested = true;
-                }
+                for (auto& bind : myBindings) {
+                    // --- REBINDING ---
+                    if (bind.isWaiting && incomingKeyID != 0) {
+                        bind.keyID = incomingKeyID;
+                        bind.minRaw = rawVal; // Set baseline to current pressure
+                        bind.maxRaw = rawVal; // Temporary ceiling
+                        bind.isWaiting = false;
+                        saveRequested = true;
+                    }
 
-                // --- UPDATING VALUE ---
-                if (bind.keyID == incomingKeyID && incomingKeyID != 0) {
-                    // Auto-calibrate Max
-                    if (rawVal > bind.maxRaw) bind.maxRaw = rawVal;
-                    // Auto-calibrate Min (Deadzone)
-                    if (rawVal < bind.minRaw) bind.minRaw = rawVal;
+                    // --- UPDATING VALUE ---
+                    if (bind.keyID == incomingKeyID && incomingKeyID != 0) {
+                        // Auto-calibrate Max
+                        if (rawVal > bind.maxRaw) bind.maxRaw = rawVal;
+                        // Auto-calibrate Min (Deadzone)
+                        if (rawVal < bind.minRaw) bind.minRaw = rawVal;
 
-                    // Calculate percentage based on the range we've actually seen
-                    float range = static_cast<float>(bind.maxRaw - bind.minRaw);
-                    if (range > 0) {
-                        float val = static_cast<float>(rawVal - bind.minRaw) / range;
-                        bind.currentPercent = (val < 0.0f) ? 0.0f : (val > 1.0f ? 1.0f : val);
+                        // Calculate percentage based on the range we've actually seen
+                        float range = static_cast<float>(bind.maxRaw - bind.minRaw);
+                        if (range > 0) {
+                            float val = static_cast<float>(rawVal - bind.minRaw) / range;
+                            bind.currentPercent = (val < 0.0f) ? 0.0f : (val > 1.0f ? 1.0f : val);
+                        }
                     }
                 }
             }
-        }
-        // REMOVE the "else { bind.currentPercent *= 0.9f; }" block entirely.
-        // The keys should stay at their last known value until the keyboard sends a '0' pressure report.
+            // REMOVE the "else { bind.currentPercent *= 0.9f; }" block entirely.
+            // The keys should stay at their last known value until the keyboard sends a '0' pressure report.
 
-        // --- 2. START IMGUI FRAME ---
-        ImGui_ImplDX11_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
+            // --- 2. START IMGUI FRAME ---
+            ImGui_ImplDX11_NewFrame();
+            ImGui_ImplWin32_NewFrame();
+            ImGui::NewFrame();
 
-        // --- CUSTOM TITLE BAR ---
-        ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x, kCustomTitleBarHeight));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.14f, 0.14f, 0.14f, 1.0f));
-        ImGui::Begin(
-            "##CustomTitleBar",
-            nullptr,
-            ImGuiWindowFlags_NoDecoration |
-            ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoScrollbar |
-            ImGuiWindowFlags_NoScrollWithMouse
-        );
+            // --- CUSTOM TITLE BAR ---
+            ImGui::SetNextWindowPos(ImVec2(0, 0));
+            ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x, kCustomTitleBarHeight));
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.14f, 0.14f, 0.14f, 1.0f));
+            ImGui::Begin(
+                "##CustomTitleBar",
+                nullptr,
+                ImGuiWindowFlags_NoDecoration |
+                ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoSavedSettings |
+                ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoScrollWithMouse
+            );
 
-        const float buttonSize = kCustomTitleBarHeight - 8.0f;
-        const float buttonSpacing = 4.0f;
-        const float buttonGroupWidth = (buttonSize * 3.0f) + (buttonSpacing * 2.0f) + 8.0f;
-        const float dragWidth = ImGui::GetWindowWidth() - buttonGroupWidth;
+            const float buttonSize = kCustomTitleBarHeight - 8.0f;
+            const float buttonSpacing = 4.0f;
+            const float buttonGroupWidth = (buttonSize * 3.0f) + (buttonSpacing * 2.0f) + 8.0f;
+            const float dragWidth = ImGui::GetWindowWidth() - buttonGroupWidth;
 
-        ImGui::InvisibleButton("##TitleDragZone", ImVec2(dragWidth, kCustomTitleBarHeight));
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-            ReleaseCapture();
-            SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
-        }
-        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-            ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
-        }
-
-        ImDrawList* drawList = ImGui::GetWindowDrawList();
-        ImVec2 titlePos = ImGui::GetWindowPos();
-        drawList->AddText(
-            ImVec2(titlePos.x + 10.0f, titlePos.y + 7.0f),
-            IM_COL32(230, 230, 230, 255),
-            "V-Muse Analog Pro"
-        );
-
-        ImGui::SetCursorPos(ImVec2(dragWidth + 4.0f, 4.0f));
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.20f, 0.20f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f, 0.28f, 0.28f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.34f, 0.34f, 0.34f, 1.0f));
-
-        if (ImGui::Button("_", ImVec2(buttonSize, buttonSize))) {
-            ShowWindow(hwnd, SW_MINIMIZE);
-        }
-        ImGui::SameLine(0.0f, buttonSpacing);
-        if (ImGui::Button(IsZoomed(hwnd) ? "R" : "M", ImVec2(buttonSize, buttonSize))) {
-            ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
-        }
-        ImGui::SameLine(0.0f, buttonSpacing);
-        if (ImGui::Button("X", ImVec2(buttonSize, buttonSize))) {
-            PostMessage(hwnd, WM_CLOSE, 0, 0);
-        }
-
-        ImGui::PopStyleColor(3);
-        ImGui::End();
-        ImGui::PopStyleColor();
-        ImGui::PopStyleVar(2);
-
-        // --- 3. THE GUI WINDOW ---
-        // Set initial panel size/position - only applies on first run (or when .ini is reset)
-        PanelBounds panelBounds;
-        ImGui::SetNextWindowPos(ImVec2(kInitialMainPanelX, kInitialMainPanelY), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(kInitialMainPanelW, kInitialMainPanelH), ImGuiCond_FirstUseEver);
-
-        ImGui::Begin("Controller Remapper", nullptr, ImGuiWindowFlags_NoCollapse);
-        IncludePanelBounds(panelBounds, ImGui::GetWindowPos(), ImGui::GetWindowSize());
-
-        // Bindings list + save button
-        ImGui::BeginChild("BindingsPanel", ImVec2(0, 0), true);
-
-        for (auto& bind : myBindings) {
-            ImGui::PushID(bind.name.c_str());
-
-            // Trash/Clear Button
-            if (ImGui::Button("X")) {
-                bind.keyID = 0;
-                bind.isWaiting = false;
+            ImGui::InvisibleButton("##TitleDragZone", ImVec2(dragWidth, kCustomTitleBarHeight));
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+                ReleaseCapture();
+                SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+            }
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
             }
 
-            ImGui::SameLine();
-            ImGui::Text("%-18s", bind.name.c_str());
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+            ImVec2 titlePos = ImGui::GetWindowPos();
+            drawList->AddText(
+                ImVec2(titlePos.x + 10.0f, titlePos.y + 7.0f),
+                IM_COL32(230, 230, 230, 255),
+                "V-Muse Analog Pro"
+            );
 
-            ImGui::SameLine();
-            std::string btnText = bind.isWaiting ? "???" : (bind.keyID == 0 ? "None" : std::to_string(bind.keyID));
-            if (!bind.isWaiting && bind.keyID != 0) {
-                auto keyIt = keyLabelById.find(bind.keyID);
-                if (keyIt != keyLabelById.end() && !keyIt->second.empty()) {
-                    btnText = keyIt->second;
+            ImGui::SetCursorPos(ImVec2(dragWidth + 4.0f, 4.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.20f, 0.20f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f, 0.28f, 0.28f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.34f, 0.34f, 0.34f, 1.0f));
+
+            if (ImGui::Button("_", ImVec2(buttonSize, buttonSize))) {
+                ShowWindow(hwnd, SW_MINIMIZE);
+            }
+            ImGui::SameLine(0.0f, buttonSpacing);
+            if (ImGui::Button(IsZoomed(hwnd) ? "R" : "M", ImVec2(buttonSize, buttonSize))) {
+                ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
+            }
+            ImGui::SameLine(0.0f, buttonSpacing);
+            if (ImGui::Button("X", ImVec2(buttonSize, buttonSize))) {
+                PostMessage(hwnd, WM_CLOSE, 0, 0);
+            }
+
+            ImGui::PopStyleColor(3);
+            ImGui::End();
+            ImGui::PopStyleColor();
+            ImGui::PopStyleVar(2);
+
+            // --- 3. THE GUI WINDOW ---
+            // Set initial panel size/position - only applies on first run (or when .ini is reset)
+            PanelBounds panelBounds;
+            ImGui::SetNextWindowPos(ImVec2(kInitialMainPanelX, kInitialMainPanelY), ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowSize(ImVec2(kInitialMainPanelW, kInitialMainPanelH), ImGuiCond_FirstUseEver);
+
+            ImGui::Begin("Controller Remapper", nullptr, ImGuiWindowFlags_NoCollapse);
+            IncludePanelBounds(panelBounds, ImGui::GetWindowPos(), ImGui::GetWindowSize());
+
+            // Bindings list + save button
+            ImGui::BeginChild("BindingsPanel", ImVec2(0, 0), true);
+
+            for (auto& bind : myBindings) {
+                ImGui::PushID(bind.name.c_str());
+
+                // Trash/Clear Button
+                if (ImGui::Button("X")) {
+                    bind.keyID = 0;
+                    bind.isWaiting = false;
+                }
+
+                ImGui::SameLine();
+                ImGui::Text("%-18s", bind.name.c_str());
+
+                ImGui::SameLine();
+                std::string btnText = bind.isWaiting ? "???" : (bind.keyID == 0 ? "None" : std::to_string(bind.keyID));
+                if (!bind.isWaiting && bind.keyID != 0) {
+                    auto keyIt = keyLabelById.find(bind.keyID);
+                    if (keyIt != keyLabelById.end() && !keyIt->second.empty()) {
+                        btnText = keyIt->second;
+                    }
+                }
+                if (ImGui::Button(btnText.c_str(), ImVec2(80, 0))) {
+                    for (auto& b : myBindings) b.isWaiting = false;
+                    bind.isWaiting = true;
+                }
+
+                ImGui::SameLine();
+                ImGui::ProgressBar(bind.currentPercent, ImVec2(-FLT_MIN, 0));
+
+                ImGui::PopID();
+            }
+            ImGui::Separator();
+            if (ImGui::Button("Save Configuration", ImVec2(-FLT_MIN, 40))) {
+                saveRequested = true;
+            }
+            ImGui::EndChild();
+            ImGui::End();
+
+            ImGui::SetNextWindowPos(ImVec2(kInitialSettingsPanelX, kInitialSettingsPanelY), ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowSize(ImVec2(kInitialSettingsPanelW, kInitialSettingsPanelH), ImGuiCond_FirstUseEver);
+            ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoCollapse);
+            IncludePanelBounds(panelBounds, ImGui::GetWindowPos(), ImGui::GetWindowSize());
+            ImGui::Checkbox("Pin to Top", &g_AlwaysOnTop);
+            ImGui::Checkbox("Disable Keyboard Reporting", &g_DisableKeyboardReporting);
+            if (g_DisableKeyboardReporting != previousDisableKeyboardReporting) {
+                applyKeyboardReportingState(dev_handle, g_DisableKeyboardReporting);
+                previousDisableKeyboardReporting = g_DisableKeyboardReporting;
+            }
+            ImGui::Separator();
+
+            if (ImGui::Button("Clear All", ImVec2(-FLT_MIN, 0))) {
+                for (auto& b : myBindings) {
+                    b.keyID = 0;
+                    b.isWaiting = false;
+                    b.currentPercent = 0.0f;
+                }
+                saveRequested = true;
+            }
+
+            if (ImGui::Button("Reset Calibration", ImVec2(-FLT_MIN, 0))) {
+                for (auto& b : myBindings) {
+                    b.minRaw = 100;
+                    b.maxRaw = 800;
                 }
             }
-            if (ImGui::Button(btnText.c_str(), ImVec2(80, 0))) {
-                for (auto& b : myBindings) b.isWaiting = false;
-                bind.isWaiting = true;
+            ImGui::End();
+
+            AutoFitWindowToPanels(hwnd, panelBounds);
+
+            if (saveRequested) {
+                saveInputCsv(g_InputCsvResolvedPath, myBindings, csvRows);
             }
 
-            ImGui::SameLine();
-            ImGui::ProgressBar(bind.currentPercent, ImVec2(-FLT_MIN, 0));
-
-            ImGui::PopID();
+            // --- 4. RENDERING ---
+            ImGui::Render();
+            const float clear_color_with_alpha[4] = {
+                kTransparentKeyR / 255.0f,
+                kTransparentKeyG / 255.0f,
+                kTransparentKeyB / 255.0f,
+                1.0f
+            };
+            g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
+            g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
+            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+            g_pSwapChain->Present(1, 0); // Present with vsync
         }
-        ImGui::Separator();
-        if (ImGui::Button("Save Configuration", ImVec2(-FLT_MIN, 40))) {
-            saveRequested = true;
-        }
-        ImGui::EndChild();
-        ImGui::End();
-
-        ImGui::SetNextWindowPos(ImVec2(kInitialSettingsPanelX, kInitialSettingsPanelY), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(kInitialSettingsPanelW, kInitialSettingsPanelH), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoCollapse);
-        IncludePanelBounds(panelBounds, ImGui::GetWindowPos(), ImGui::GetWindowSize());
-        ImGui::Checkbox("Pin to Top", &g_AlwaysOnTop);
-        ImGui::Checkbox("Disable Keyboard Reporting", &g_DisableKeyboardReporting);
-        if (g_DisableKeyboardReporting != previousDisableKeyboardReporting) {
-            applyKeyboardReportingState(dev_handle, g_DisableKeyboardReporting);
-            previousDisableKeyboardReporting = g_DisableKeyboardReporting;
-        }
-        ImGui::Separator();
-
-        if (ImGui::Button("Clear All", ImVec2(-FLT_MIN, 0))) {
-            for (auto& b : myBindings) {
-                b.keyID = 0;
-                b.isWaiting = false;
-                b.currentPercent = 0.0f;
-            }
-            saveRequested = true;
-        }
-
-        if (ImGui::Button("Reset Calibration", ImVec2(-FLT_MIN, 0))) {
-            for (auto& b : myBindings) {
-                b.minRaw = 100;
-                b.maxRaw = 800;
-            }
-        }
-        ImGui::End();
-
-        AutoFitWindowToPanels(hwnd, panelBounds);
-
-        if (saveRequested) {
-            saveInputCsv(g_InputCsvResolvedPath, myBindings, csvRows);
-        }
-
-        // --- 4. RENDERING ---
-        ImGui::Render();
-        const float clear_color_with_alpha[4] = {
-            kTransparentKeyR / 255.0f,
-            kTransparentKeyG / 255.0f,
-            kTransparentKeyB / 255.0f,
-            1.0f
-        };
-        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
-        g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-        g_pSwapChain->Present(1, 0); // Present with vsync
+    } catch (const std::exception& e) {
+        debugLog(std::string("Exception: ") + e.what());
+    } catch (...) {
+        debugLog("Unknown exception occurred.");
     }
 
     // --- CLEANUP ---
@@ -930,6 +936,3 @@ int main(int, char**) {
 
     return 0;
 }
-
-// --- BOILERPLATE WIN32/D3D FUNCTIONS ---
-// (Paste these exactly as is from the ImGui 'main.cpp' example for Win32+DX11)
