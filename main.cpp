@@ -449,8 +449,8 @@ void AutoFitWindowToPanels(HWND hwnd, const PanelBounds& bounds)
         return;
 
     RECT rc = { 0, 0, desiredClientWidth, desiredClientHeight };
-    const DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
-    const DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
+    const auto style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
+    const auto exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
     AdjustWindowRectEx(&rc, style, FALSE, exStyle);
 
     SetWindowPos(
@@ -495,6 +495,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         ::PostQuitMessage(0);
         return 0;
+    default: ;
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
@@ -503,7 +504,6 @@ hid_device* dev_handle = nullptr;
 PVIGEM_CLIENT client = nullptr;
 PVIGEM_TARGET pad = nullptr;
 
-// --- YOUR MAIN ---
 int main(int, char**) {
     Gdiplus::GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken = 0;
@@ -594,13 +594,18 @@ int main(int, char**) {
     struct hid_device_info *devs, *cur_dev;
     devs = hid_enumerate(VENDOR_ID, PRODUCT_ID);
     cur_dev = devs;
-    std::string path_to_open = "";
+    std::string path_to_open;
+
+    hid_device_info dev_list[12];
+    int dev_list_size = 0;
 
     while (cur_dev) {
         // Usage Page 0xFF00 is the industry standard for this.
         if (cur_dev->usage_page == 0xff00 || cur_dev->interface_number == 1) {
             path_to_open = cur_dev->path;
-            break;
+            if (dev_list_size < 12){
+                dev_list[dev_list_size++];
+            }
         }
         cur_dev = cur_dev->next;
     }
@@ -608,9 +613,13 @@ int main(int, char**) {
     if (!path_to_open.empty()) {
         dev_handle = hid_open_path(path_to_open.c_str());
     } else {
-        // Fallback if we can't find the specific usage page
-        //TODO: add dynamic detection for different keyboards
-        dev_handle = hid_open(VENDOR_ID, PRODUCT_ID, NULL);
+        for (int i = 0; i < dev_list_size; ++i) {
+            if (dev_list[i].vendor_id == VENDOR_ID) {
+                dev_handle = hid_open_path(dev_list[i].path);
+                break;
+            }
+        }
+        //dev_handle = hid_open(VENDOR_ID, PRODUCT_ID, nullptr);
     }
     hid_free_enumeration(devs);
 
@@ -647,7 +656,7 @@ int main(int, char**) {
             if (done) break;
 
             // Update window Z-order based on the checkbox
-            HWND currentHwnd = GetActiveWindow(); // Or pass your 'hwnd' variable
+            //HWND currentHwnd = GetActiveWindow(); // Or pass your 'hwnd' variable
             if (g_AlwaysOnTop) {
                 SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
             } else {
@@ -722,7 +731,7 @@ int main(int, char**) {
                         if (rawVal < bind.minRaw) bind.minRaw = rawVal;
 
                         // Calculate percentage based on the range we've actually seen
-                        float range = static_cast<float>(bind.maxRaw - bind.minRaw);
+                        auto range = static_cast<float>(bind.maxRaw - bind.minRaw);
                         if (range > 0) {
                             float val = static_cast<float>(rawVal - bind.minRaw) / range;
                             bind.currentPercent = (val < 0.0f) ? 0.0f : (val > 1.0f ? 1.0f : val);
@@ -791,6 +800,7 @@ int main(int, char**) {
             ImGui::SameLine(0.0f, buttonSpacing);
             if (ImGui::Button("X", ImVec2(buttonSize, buttonSize))) {
                 PostMessage(hwnd, WM_CLOSE, 0, 0);
+                done = true;
             }
 
             ImGui::PopStyleColor(3);
@@ -873,6 +883,10 @@ int main(int, char**) {
                     b.minRaw = 100;
                     b.maxRaw = 800;
                 }
+            }
+
+            if (ImGui::Button("Devices", ImVec2(-FLT_MIN, 0))) {
+                //TODO: Allow device selection
             }
             ImGui::End();
 
